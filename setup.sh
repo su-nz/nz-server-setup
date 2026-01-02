@@ -28,8 +28,11 @@ sudo usermod -aG docker $USER
 echo "⚠️  Docker 已安裝，需重新登入才能使用（或執行: newgrp docker）"
 
 echo "🔒 [4/6] 配置防火牆與防暴力破解..."
-sudo systemctl enable ufw && sudo ufw default deny incoming && sudo ufw default allow outgoing
-sudo ufw allow 22/tcp && sudo ufw enable -y
+sudo systemctl enable ufw
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+echo "y" | sudo ufw enable
 sudo systemctl enable fail2ban && sudo systemctl start fail2ban
 echo "✓ 防火牆已啟用，SSH(22) 開放"
 
