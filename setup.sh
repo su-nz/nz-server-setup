@@ -32,7 +32,7 @@ sudo systemctl enable ufw
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow 22/tcp
-echo "y" | sudo ufw enable
+sudo ufw --force-enable
 sudo systemctl enable fail2ban && sudo systemctl start fail2ban
 echo "✓ 防火牆已啟用，SSH(22) 開放"
 
