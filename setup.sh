@@ -17,7 +17,7 @@ sudo apt update && sudo apt upgrade -y
 
 echo "📦 [2/6] 安裝必備工具..."
 sudo apt install -y curl wget git vim software-properties-common build-essential \
-  htop net-tools tmux fail2ban ufw tree unzip
+  htop net-tools tmux fail2ban ufw tree unzip traceroute
 
 echo "🐳 [3/6] 安裝 Docker..."
 curl -fsSL https://get.docker.com -o get-docker.sh
