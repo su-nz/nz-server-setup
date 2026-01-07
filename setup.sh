@@ -95,14 +95,14 @@ echo -e "${GREEN}  即將安裝以下項目：${NC}"
 echo -e "${GREEN}============================================${NC}"
 
 install_count=0
-[[ "$INSTALL_SYSTEM_UPDATE" == true ]] && echo "  ✓ 更新系統套件" && ((install_count++))
-[[ "$INSTALL_BASIC_TOOLS" == true ]] && echo "  ✓ 基礎工具套件" && ((install_count++))
-[[ "$INSTALL_DOCKER" == true ]] && echo "  ✓ Docker" && ((install_count++))
-[[ "$INSTALL_FIREWALL" == true ]] && echo "  ✓ 防火牆設定（UFW + Fail2ban）" && ((install_count++))
-[[ "$INSTALL_TAILSCALE" == true ]] && echo "  ✓ Tailscale VPN" && ((install_count++))
-[[ "$INSTALL_OPENVPN" == true ]] && echo "  ✓ OpenVPN Server" && ((install_count++))
-[[ "$INSTALL_TIMEZONE" == true ]] && echo "  ✓ 時區設定（Asia/Taipei）" && ((install_count++))
-[[ "$INSTALL_MAINTENANCE" == true ]] && echo "  ✓ 維護腳本與自動更新排程" && ((install_count++))
+[[ "$INSTALL_SYSTEM_UPDATE" == true ]] && echo "  ✓ 更新系統套件" && ((install_count++)) || true
+[[ "$INSTALL_BASIC_TOOLS" == true ]] && echo "  ✓ 基礎工具套件" && ((install_count++)) || true
+[[ "$INSTALL_DOCKER" == true ]] && echo "  ✓ Docker" && ((install_count++)) || true
+[[ "$INSTALL_FIREWALL" == true ]] && echo "  ✓ 防火牆設定（UFW + Fail2ban）" && ((install_count++)) || true
+[[ "$INSTALL_TAILSCALE" == true ]] && echo "  ✓ Tailscale VPN" && ((install_count++)) || true
+[[ "$INSTALL_OPENVPN" == true ]] && echo "  ✓ OpenVPN Server" && ((install_count++)) || true
+[[ "$INSTALL_TIMEZONE" == true ]] && echo "  ✓ 時區設定（Asia/Taipei）" && ((install_count++)) || true
+[[ "$INSTALL_MAINTENANCE" == true ]] && echo "  ✓ 維護腳本與自動更新排程" && ((install_count++)) || true
 
 if [[ $install_count -eq 0 ]]; then
     echo "  ⚠️  未選擇任何安裝項目"
@@ -132,14 +132,14 @@ step=1
 if [[ "$INSTALL_SYSTEM_UPDATE" == true ]]; then
     echo "🚀 [$step] 更新系統套件索引..."
     sudo apt update && sudo apt upgrade -y
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_BASIC_TOOLS" == true ]]; then
     echo "📦 [$step] 安裝必備工具..."
     sudo apt install -y curl wget git vim software-properties-common build-essential \
       htop net-tools tmux fail2ban ufw tree unzip traceroute
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_DOCKER" == true ]]; then
@@ -151,7 +151,7 @@ if [[ "$INSTALL_DOCKER" == true ]]; then
     rm get-docker.sh
     sudo usermod -aG docker $USER
     echo "⚠️  Docker 已安裝，需重新登入才能使用（或執行: newgrp docker）"
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_FIREWALL" == true ]]; then
@@ -163,7 +163,7 @@ if [[ "$INSTALL_FIREWALL" == true ]]; then
     sudo ufw --force-enable
     sudo systemctl enable fail2ban && sudo systemctl start fail2ban
     echo "✓ 防火牆已啟用，SSH(22) 開放"
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_TAILSCALE" == true ]]; then
@@ -173,7 +173,7 @@ if [[ "$INSTALL_TAILSCALE" == true ]]; then
     echo "   ✓ 下載完成，開始執行安裝..."
     sudo sh tailscale-install.sh
     rm tailscale-install.sh
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_OPENVPN" == true ]]; then
@@ -185,13 +185,13 @@ if [[ "$INSTALL_OPENVPN" == true ]]; then
     echo "   ✓ OpenVPN 安裝腳本已下載"
     echo "⚠️  請執行 'sudo ./openvpn-install.sh' 來完成 OpenVPN 設定"
     echo "⚠️  安裝後記得開放 UDP 1194 端口: sudo ufw allow 1194/udp"
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_TIMEZONE" == true ]]; then
     echo "🕒 [$step] 設定時區為 Asia/Taipei..."
     sudo timedatectl set-timezone Asia/Taipei
-    ((step++))
+    step=$((step + 1))
 fi
 
 if [[ "$INSTALL_MAINTENANCE" == true ]]; then
@@ -199,7 +199,7 @@ if [[ "$INSTALL_MAINTENANCE" == true ]]; then
     sudo curl -o /usr/local/bin/update.sh "https://raw.githubusercontent.com/${USER_GITHUB}/${REPO_NAME}/main/update.sh"
     sudo chmod +x /usr/local/bin/update.sh
     (sudo crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/update.sh") | sudo crontab -
-    ((step++))
+    step=$((step + 1))
 fi
 
 # =================================================================
