@@ -174,7 +174,7 @@ if [[ "$INSTALL_FIREWALL" == true ]]; then
     sudo ufw default deny incoming || firewall_error=true
     sudo ufw default allow outgoing || firewall_error=true
     sudo ufw allow 22/tcp || firewall_error=true
-    sudo ufw --force enable || firewall_error=true
+    echo "y" | sudo ufw enable || firewall_error=true
     
     if ! sudo systemctl enable fail2ban || ! sudo systemctl start fail2ban; then
         WARNINGS+=("[Fail2ban] 啟動失敗，請手動檢查")
