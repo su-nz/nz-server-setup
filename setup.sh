@@ -5,12 +5,14 @@
 # 功能：安裝基礎工具、Tailscale、設定時區、配置自動更新
 # =================================================================
 
-set -e # 遇到錯誤立即停止執行
-
 # 基礎設定
 export DEBIAN_FRONTEND=noninteractive
 USER_GITHUB="su-nz"
 REPO_NAME="nz-server-setup"
+
+# 錯誤追蹤陣列
+declare -a ERRORS=()
+declare -a WARNINGS=()
 
 # 初始化安裝選項（預設全部為 false）
 INSTALL_SYSTEM_UPDATE=false
@@ -131,48 +133,75 @@ step=1
 
 if [[ "$INSTALL_SYSTEM_UPDATE" == true ]]; then
     echo "🚀 [$step] 更新系統套件索引..."
-    sudo apt update && sudo apt upgrade -y
+    if ! sudo apt update && sudo apt upgrade -y; then
+        ERRORS+=("[系統更新] 套件更新失敗")
+    fi
     step=$((step + 1))
 fi
 
 if [[ "$INSTALL_BASIC_TOOLS" == true ]]; then
     echo "📦 [$step] 安裝必備工具..."
-    sudo apt install -y curl wget git vim software-properties-common build-essential \
-      htop net-tools tmux fail2ban ufw tree unzip traceroute
+    if ! sudo apt install -y curl wget git vim software-properties-common build-essential \
+      htop net-tools tmux fail2ban ufw tree unzip traceroute; then
+        ERRORS+=("[基礎工具] 安裝失敗")
+    fi
     step=$((step + 1))
 fi
 
 if [[ "$INSTALL_DOCKER" == true ]]; then
     echo "🐳 [$step] 安裝 Docker..."
     echo "   ⏳ 從官方來源下載安裝腳本..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    echo "   ✓ 下載完成，開始執行安裝..."
-    sudo sh get-docker.sh
-    rm get-docker.sh
-    sudo usermod -aG docker $USER
-    echo "⚠️  Docker 已安裝，需重新登入才能使用（或執行: newgrp docker）"
+    if curl -fsSL https://get.docker.com -o get-docker.sh; then
+        echo "   ✓ 下載完成，開始執行安裝..."
+        if sudo sh get-docker.sh; then
+            rm get-docker.sh
+            sudo usermod -aG docker $USER
+            echo "⚠️  Docker 已安裝，需重新登入才能使用（或執行: newgrp docker）"
+        else
+            ERRORS+=("[Docker] 安裝失敗")
+            rm -f get-docker.sh
+        fi
+    else
+        ERRORS+=("[Docker] 下載安裝腳本失敗")
+    fi
     step=$((step + 1))
 fi
 
 if [[ "$INSTALL_FIREWALL" == true ]]; then
     echo "🔒 [$step] 配置防火牆與防暴力破解..."
-    sudo systemctl enable ufw
-    sudo ufw default deny incoming
-    sudo ufw default allow outgoing
-    sudo ufw allow 22/tcp
-    sudo ufw --force-enable
-    sudo systemctl enable fail2ban && sudo systemctl start fail2ban
-    echo "✓ 防火牆已啟用，SSH(22) 開放"
+    firewall_error=false
+    sudo systemctl enable ufw || firewall_error=true
+    sudo ufw default deny incoming || firewall_error=true
+    sudo ufw default allow outgoing || firewall_error=true
+    sudo ufw allow 22/tcp || firewall_error=true
+    sudo ufw --force enable || firewall_error=true
+    
+    if ! sudo systemctl enable fail2ban || ! sudo systemctl start fail2ban; then
+        WARNINGS+=("[Fail2ban] 啟動失敗，請手動檢查")
+    fi
+    
+    if [[ "$firewall_error" == true ]]; then
+        ERRORS+=("[防火牆] UFW 配置失敗")
+    else
+        echo "✓ 防火牆已啟用，SSH(22) 開放"
+    fi
     step=$((step + 1))
 fi
 
 if [[ "$INSTALL_TAILSCALE" == true ]]; then
     echo "🌐 [$step] 安裝 Tailscale..."
     echo "   ⏳ 從官方來源下載安裝腳本..."
-    curl -fsSL https://tailscale.com/install.sh -o tailscale-install.sh
-    echo "   ✓ 下載完成，開始執行安裝..."
-    sudo sh tailscale-install.sh
-    rm tailscale-install.sh
+    if curl -fsSL https://tailscale.com/install.sh -o tailscale-install.sh; then
+        echo "   ✓ 下載完成，開始執行安裝..."
+        if sudo sh tailscale-install.sh; then
+            rm tailscale-install.sh
+        else
+            ERRORS+=("[Tailscale] 安裝失敗")
+            rm -f tailscale-install.sh
+        fi
+    else
+        ERRORS+=("[Tailscale] 下載安裝腳本失敗")
+    fi
     step=$((step + 1))
 fi
 
@@ -180,25 +209,38 @@ if [[ "$INSTALL_OPENVPN" == true ]]; then
     echo "🔐 [$step] 安裝 OpenVPN Server..."
     echo "   ⏳ 從 GitHub 官方來源下載安裝腳本 (angristan/openvpn-install)..."
     # 使用官方 GitHub 完整 URL
-    wget https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh -O openvpn-install.sh
-    chmod +x openvpn-install.sh
-    echo "   ✓ OpenVPN 安裝腳本已下載"
-    echo "⚠️  請執行 'sudo ./openvpn-install.sh' 來完成 OpenVPN 設定"
-    echo "⚠️  安裝後記得開放 UDP 1194 端口: sudo ufw allow 1194/udp"
+    if wget https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh -O openvpn-install.sh; then
+        chmod +x openvpn-install.sh
+        echo "   ✓ OpenVPN 安裝腳本已下載"
+        echo "⚠️  請執行 'sudo ./openvpn-install.sh' 來完成 OpenVPN 設定"
+        echo "⚠️  安裝後記得開放 UDP 1194 端口: sudo ufw allow 1194/udp"
+    else
+        ERRORS+=("[OpenVPN] 下載安裝腳本失敗")
+    fi
     step=$((step + 1))
 fi
 
 if [[ "$INSTALL_TIMEZONE" == true ]]; then
     echo "🕒 [$step] 設定時區為 Asia/Taipei..."
-    sudo timedatectl set-timezone Asia/Taipei
+    if ! sudo timedatectl set-timezone Asia/Taipei; then
+        ERRORS+=("[時區設定] 設定失敗")
+    fi
     step=$((step + 1))
 fi
 
 if [[ "$INSTALL_MAINTENANCE" == true ]]; then
     echo "📅 [$step] 下載維護腳本並設定排程..."
-    sudo curl -o /usr/local/bin/update.sh "https://raw.githubusercontent.com/${USER_GITHUB}/${REPO_NAME}/main/update.sh"
-    sudo chmod +x /usr/local/bin/update.sh
-    (sudo crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/update.sh") | sudo crontab -
+    if sudo curl -o /usr/local/bin/update.sh "https://raw.githubusercontent.com/${USER_GITHUB}/${REPO_NAME}/main/update.sh"; then
+        if sudo chmod +x /usr/local/bin/update.sh; then
+            if ! (sudo crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/update.sh") | sudo crontab -; then
+                WARNINGS+=("[維護排程] Crontab 設定失敗，請手動設定")
+            fi
+        else
+            ERRORS+=("[維護腳本] 設定執行權限失敗")
+        fi
+    else
+        ERRORS+=("[維護腳本] 下載失敗")
+    fi
     step=$((step + 1))
 fi
 
@@ -206,8 +248,41 @@ fi
 # 完成訊息
 # =================================================================
 echo ""
+
+# 顯示錯誤和警告
+if [[ ${#ERRORS[@]} -gt 0 ]] || [[ ${#WARNINGS[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}============================================${NC}"
+    echo -e "${YELLOW}⚠️  安裝完成，但有一些問題需要注意${NC}"
+    echo -e "${YELLOW}============================================${NC}"
+    
+    if [[ ${#ERRORS[@]} -gt 0 ]]; then
+        echo -e "${RED}"
+        echo "❌ 錯誤："
+        for error in "${ERRORS[@]}"; do
+            echo "  - $error"
+        done
+        echo -e "${NC}"
+    fi
+    
+    if [[ ${#WARNINGS[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}"
+        echo "⚠️  警告："
+        for warning in "${WARNINGS[@]}"; do
+            echo "  - $warning"
+        done
+        echo -e "${NC}"
+    fi
+    
+    echo -e "${YELLOW}============================================${NC}"
+    echo ""
+fi
+
 echo -e "${GREEN}============================================${NC}"
-echo -e "${GREEN}✅ 安裝完成！${NC}"
+if [[ ${#ERRORS[@]} -eq 0 ]]; then
+    echo -e "${GREEN}✅ 安裝完成！${NC}"
+else
+    echo -e "${YELLOW}✅ 安裝部分完成${NC}"
+fi
 echo -e "${GREEN}============================================${NC}"
 
 [[ "$INSTALL_TAILSCALE" == true ]] && echo "👉 請執行 'sudo tailscale up' 來登入你的 Tailscale 網路。"
