@@ -1,0 +1,15 @@
+sudo bash -c 'cat << "EOF" > /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp130s0:
+      dhcp4: false
+      addresses:
+        - 140.122.185.143/24
+      routes:
+        - to: default
+          via: 140.122.185.254
+      nameservers:
+        addresses: [8.8.8.8, 1.1.1.1]
+EOF'
